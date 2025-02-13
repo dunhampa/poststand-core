@@ -1,0 +1,15 @@
+scripts:
+  - script1.js
+  # - script4.js
+  #- script2.js
+  - script3.js
+  # - script4.js
+layers:
+  - poststand-core-layer-v1
+timeoutDurationInSecs: 900
+memorySize:
+ephemeralStorageSize:
+retryAttempts: 0
+userLocalSecrets: true #this is ignored when running in AWS Lambda
+secrets:
+  - secretTwo
