@@ -1,0 +1,17 @@
+# Ignore all JavaScript files globally
+#*.js
+
+# Allow JavaScript files in all subdirectories of lib/
+!lib/**/*.js
+test/cdk_poststand.test.js
+
+# Explicitly ignore the compiled file in lib/
+lib/cdk_poststand-stack.js
+!jest.config.js
+*.d.ts
+node_modules
+.DS_Store
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out

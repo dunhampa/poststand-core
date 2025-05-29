@@ -10,13 +10,16 @@ allowed_scripts:
   - script2.js
   - script3.js
   - script5.js
-  #- script10.js
+  - script10.js
+includeNodeModules: false     # <-- NEW — set to false or omit to rely on the layer
 layers:
-  - poststand-core-layer-v1
+  - poststand-core-layer-v7
+handlerFile: handler_v8.js
 timeoutDurationInSecs: 900
-memorySize:
-ephemeralStorageSize:
+memorySize: 2048
+ephemeralStorageSize: 2048
 retryAttempts: 0
 userLocalSecrets: false #this is ignored when running in AWS Lambda
 secrets:
+  - secretOne
   - secretTwo

@@ -161,20 +161,20 @@ async function getSecret(secretPath) {
 /**
  * fetchSecretFromLocalFile(secretName: string): string|undefined
  *
- * Reads a local file: ../.secrets/ignored_in_git/<secretName>
+ * Reads a local file: ../.secrets/do_not_git/<secretName>
  * from one level above the consumer function's directory.
  * 
  * The example below assumes that your script is called from 
  * the consumer directory (test_testingPostStandConsumer),
- * and that .secrets/ignored_in_git is a sibling of that directory.
+ * and that .secrets/do_not_git is a sibling of that directory.
  * 
  * Adjust the relative path logic if your structure is different.
  */
 function fetchSecretFromLocalFile(secretName) {
   // E.g. if CWD = test_testingPostStandConsumer
-  // we want: ../.secrets/ignored_in_git/secretName
+  // we want: ../.secrets/do_not_git/secretName
   const upOne = path.join(process.cwd(), '..');  // go up from consumer
-  const secretsDir = path.join(upOne, '.secrets', 'ignored_in_git');
+  const secretsDir = path.join(upOne, '.secrets', 'do_not_git');
   const secretFilePath = path.join(secretsDir, secretName);
 
   if (!fs.existsSync(secretFilePath)) {

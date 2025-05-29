@@ -12,7 +12,7 @@ timeoutDurationInSecs: 900
 memorySize:
 ephemeralStorageSize:
 retryAttempts: 0
-userLocalSecrets: true #this is ignored when running in AWS Lambda
+userLocalSecrets: false #this is ignored when running in AWS Lambda
 secrets:
   - secretOne
   - secretTwo

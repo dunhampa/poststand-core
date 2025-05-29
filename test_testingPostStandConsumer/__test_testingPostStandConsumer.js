@@ -1,23 +1,12 @@
-const {runScriptsInOrder, loadScriptOrder, globalsClear} = require('poststand-core');
-
-// Example of initializing variables or environment
-process.env.NODE_ENV = 'production';
-console.log('main.js is located at:', __dirname);
-let scripts;
-try {
-  // loadScriptOrder takes the filename and directory from which to load.
-  // If you don't pass dirname, it defaults to the file's own location inside the poststand package,
-  // so be sure to specify the correct path in your usage:
-  scripts = loadScriptOrder('_collection_config.yaml', __dirname);
-} catch (err) {
-  console.error("Not finding collection_config.yaml file in collection directory");
-  process.exit(1);
-}
+// __test_testingPostStandConsumer.js
+//const { runCollection } = require('../runCollection');
+const {runCollection} = require('poststand-core');
 
 
-globalsClear();
-// Run the scripts in order
-runScriptsInOrder(scripts)
+console.log('Starting collection runner at:', process.cwd());
+runCollection({
+  clearGlobals: true // Always clear globals locally
+})
   .then(() => {
     console.log('Scripts completed successfully in main.js');
   })
@@ -25,3 +14,6 @@ runScriptsInOrder(scripts)
     console.error('Error running scripts:', err);
     process.exit(1);
   });
+
+
+

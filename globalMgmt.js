@@ -1,157 +1,80 @@
-//globalMgmt.js
-require('dotenv').config(); // optional if you use .env locally
-
-const fs = require('fs');
+// globalsMgmt.js
+const fs   = require('fs');
 const path = require('path');
 
-//-----------------------------------------------------------------
-// Detect if we are running in AWS Lambda
-//-----------------------------------------------------------------
 function isAWSLambda() {
   return Boolean(
     process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    process.env.AWS_EXECUTION_ENV ||
+    process.env.AWS_EXECUTION_ENV   ||
     process.env.LAMBDA_TASK_ROOT
   );
 }
 
-//-----------------------------------------------------------------
-// Determine if we store in local file or in /tmp namespace
-//-----------------------------------------------------------------
-const inLambda = isAWSLambda();
+function getGlobalsFilePath() {
+  const inLambda = isAWSLambda();
+  const dir = inLambda
+    ? process.env.LAMBDA_GLOBALS       // must be set by your handler
+    : process.cwd();
 
-// This environment variable is set by executor.js so each script
-// knows *which* /tmp folder to use for ephemeral globals.
-const tmpGlobalsDir = process.env.TMP_GLOBALS_DIR || '/tmp';
-
-// If not in Lambda, we store globals in a local JSON file
-// (just like your original approach).
-let runLocal = !inLambda;
-
-//-----------------------------------------------------------------
-// File-based storage (for local dev or non-Lambda environment)
-//-----------------------------------------------------------------
-const localGlobalsFilePath = path.join(process.cwd(), 'globals.json');
-
-function loadLocalGlobals() {
-  if (!fs.existsSync(localGlobalsFilePath)) {
-    return {};
-  }
-  try {
-    const data = fs.readFileSync(localGlobalsFilePath, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    console.error('[globalsMgmt] Error reading local globals file:', err);
-    return {};
-  }
-}
-
-function saveLocalGlobals(globals) {
-  try {
-    fs.writeFileSync(
-      localGlobalsFilePath,
-      JSON.stringify(globals, null, 2),
-      'utf8'
+  if (inLambda && !dir) {
+    throw new Error(
+      '[globalsMgmt] process.env.LAMBDA_GLOBALS is not set; cannot write globals'
     );
-  } catch (err) {
-    console.error('[globalsMgmt] Error writing local globals file:', err);
   }
+
+  return path.join(dir, 'globals.json');
 }
 
-//-----------------------------------------------------------------
-// /tmp-based storage (for Lambda)
-// We namespace by a subdirectory in /tmp, e.g. /tmp/<uniqueID>/globals.json
-//-----------------------------------------------------------------
-function getTmpGlobalsFilePath() {
-  // We assume executor.js sets TMP_GLOBALS_DIR to something unique like:
-  //   /tmp/<awsRequestId>-<timestamp>
-  return path.join(tmpGlobalsDir, 'globals.json');
-}
-
-function loadTmpGlobals() {
-  const tmpPath = getTmpGlobalsFilePath();
-  if (!fs.existsSync(tmpPath)) {
-    return {};
-  }
+function loadGlobals() {
+  const file = getGlobalsFilePath();
+  if (!fs.existsSync(file)) return {};
   try {
-    const data = fs.readFileSync(tmpPath, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
-    console.error('[globalsMgmt] Error reading tmp globals file:', err);
+    console.error('[globalsMgmt] load error:', err);
     return {};
   }
 }
 
-function saveTmpGlobals(globals) {
-  const tmpPath = getTmpGlobalsFilePath();
+function saveGlobals(obj) {
+  const file = getGlobalsFilePath();
   try {
-    fs.writeFileSync(
-      tmpPath,
-      JSON.stringify(globals, null, 2),
-      'utf8'
-    );
+    fs.writeFileSync(file, JSON.stringify(obj, null, 2), 'utf8');
   } catch (err) {
-    console.error('[globalsMgmt] Error writing tmp globals file:', err);
+    console.error('[globalsMgmt] save error:', err);
   }
 }
 
-//-----------------------------------------------------------------
-// Decide which approach to use
-//-----------------------------------------------------------------
-let loadGlobals, saveGlobals;
-if (runLocal) {
-  console.log('[globalsMgmt] Using LOCAL file-based storage at:', localGlobalsFilePath);
-  loadGlobals = loadLocalGlobals;
-  saveGlobals = saveLocalGlobals;
-} else {
-  console.log('[globalsMgmt] Using /tmp-based storage in:', tmpGlobalsDir);
-  loadGlobals = loadTmpGlobals;
-  saveGlobals = saveTmpGlobals;
-}
-
-//-----------------------------------------------------------------
-// Exported Functions
-//-----------------------------------------------------------------
 function globalSet(key, value) {
-  const globals = loadGlobals();
-  globals[key] = value;
-  saveGlobals(globals);
+  const g = loadGlobals();
+  g[key] = value;
+  saveGlobals(g);
 }
 
 function globalGet(key) {
-  const globals = loadGlobals();
-  return globals[key];
+  return loadGlobals()[key];
 }
 
 function globalsClear() {
   saveGlobals({});
 }
 
-function queueNextScript(scriptName) {
-  // Load existing "nextScripts" array (if it exists)
-  const globals = loadGlobals();
-  const queued = globals.nextScripts || [];
-
-  // Push the new script name
-  queued.push(scriptName);
-
-  // Save it back
-  globals.nextScripts = queued;
-  saveGlobals(globals);
-}
-
-
 function globalListAll() {
-  // Return *all* global key-value pairs
   return loadGlobals();
 }
 
+function queueNextScript(name) {
+  const g = loadGlobals();
+  g.nextScripts = g.nextScripts || [];
+  g.nextScripts.push(name);
+  saveGlobals(g);
+}
 
 module.exports = {
   globalSet,
   globalGet,
   globalsClear,
-  isAWSLambda,
   globalListAll,
   queueNextScript,
+  isAWSLambda,
 };
