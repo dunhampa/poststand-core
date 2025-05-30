@@ -200,7 +200,7 @@ function fetchSecretFromLocalFile(secretName) {
  * or handle accordingly.
  */
 async function fetchSecretFromAWS(secretName) {
-   console.log("I'm HEREEEEEEEE")
+   
    // You may specify region here or rely on default environment config.
    const client = new SecretsManagerClient({
      region: process.env.AWS_REGION || 'us-east-1'
@@ -209,8 +209,7 @@ async function fetchSecretFromAWS(secretName) {
    try {
      const command = new GetSecretValueCommand({ SecretId: secretName });
      const data = await client.send(command);
-     console.log("SECRET TEST PRINT REMOVE ME")
-     console.log(data)
+  
  
      if (data.SecretString) {
        return data.SecretString;

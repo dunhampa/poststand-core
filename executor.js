@@ -194,27 +194,30 @@ async function runScriptsInOrder(scripts, allowedScripts = []) {
     function runNextScript() {
       if (index >= scripts.length) {
         console.log('[executor] All scripts executed successfully.');
-        if (inLambda && tmpNamespaceDir) {
-          console.log('[executor] Cleaning up tmp directory after run:', tmpNamespaceDir);
-          removeDirectoryRecursively(tmpNamespaceDir);
-        }
+        // Intentionally removed cleanup from here. Handler will do it.
+        // if (inLambda && tmpNamespaceDir) {
+        //   console.log('[executor] Cleaning up tmp directory after run:', tmpNamespaceDir);
+        //   removeDirectoryRecursively(tmpNamespaceDir); 
+        // }
         return resolve();
       }
 
-      const script = scripts[index];
+      const scriptName = scripts[index]; // This is the bare name, e.g., "script1.js"
       
-      // Check if script is allowed to run
-      if (!scriptWhitelist.has(script)) {
-        console.log(`[executor] SKIPPING script ${script} (not in allowed_scripts list)`);
+      // Check if script is allowed to run (using the bare name)
+      if (!scriptWhitelist.has(scriptName)) {
+        console.log(`[executor] SKIPPING script ${scriptName} (not in allowed_scripts list)`);
         index++;
         return runNextScript();
       }
       
-      console.log(`-----------[${script}]---------------------------\n`);
+      console.log(`-----------[${scriptName}]---------------------------\n`);
 
+      // Construct the actual path to the script within the _scripts directory
+      const scriptPath = path.join('_scripts', scriptName);
 
-      // Record "Executing" state
-      const entry = { script, status: 'Executing', durationMs: '' };
+      // Record "Executing" state (using the bare name for logging consistency with config)
+      const entry = { script: scriptName, status: 'Executing', durationMs: '' };
       runLog.push(entry);
       UpdateRunnerCsv();
       const startTime = Date.now();
@@ -224,7 +227,7 @@ async function runScriptsInOrder(scripts, allowedScripts = []) {
         childEnv.TMP_GLOBALS_DIR = tmpNamespaceDir;
       }
 
-      const child = spawn('node', [script], {
+      const child = spawn('node', [scriptPath], { // Use the constructed scriptPath here
         stdio: 'inherit',
         env: childEnv,
       });
@@ -239,22 +242,22 @@ async function runScriptsInOrder(scripts, allowedScripts = []) {
         UpdateRunnerCsv();
 
         if (code !== 0) {
-          console.error(`[executor] Script ${script} exited with error code ${code}.`);
+          console.error(`[executor] Script ${scriptName} (path: ${scriptPath}) exited with error code ${code}.`);
           if (inLambda && tmpNamespaceDir) {
             console.log('[executor] Cleaning up tmp directory on error:', tmpNamespaceDir);
             removeDirectoryRecursively(tmpNamespaceDir);
           }
-          return reject(new Error(`Script ${script} failed with code ${code}`));
+          return reject(new Error(`Script ${scriptName} (path: ${scriptPath}) failed with code ${code}`));
         } else {
           const queued = globalGet('nextScripts') || [];
           if (queued.length > 0) {
-            console.log(`[executor] Script ${script} queued ${queued.length} new script(s):`, queued);
+            console.log(`[executor] Script ${scriptName} queued ${queued.length} new script(s):`, queued);
             
-            // Filter queued scripts against the whitelist
-            const validQueued = queued.filter(queuedScript => {
-              const isAllowed = scriptWhitelist.has(queuedScript);
+            // Filter queued scripts against the whitelist (using bare names)
+            const validQueued = queued.filter(queuedScriptName => {
+              const isAllowed = scriptWhitelist.has(queuedScriptName);
               if (!isAllowed) {
-                console.log(`[executor] Skipping queued script ${queuedScript} (not in allowed_scripts list)`);
+                console.log(`[executor] Skipping queued script ${queuedScriptName} (not in allowed_scripts list)`);
               }
               return isAllowed;
             });
@@ -275,4 +278,5 @@ async function runScriptsInOrder(scripts, allowedScripts = []) {
 module.exports = {
   runScriptsInOrder,
   initializeGlobalSpace,
+  removeDirectoryRecursively,
 };
