@@ -5,7 +5,9 @@ const yaml = require('js-yaml');
 
 // To this:
 const { runScriptsInOrder } = require('./executor.js');
-const { globalSet, globalsClear, isAWSLambda } = require('./globalMgmt.js');
+const { globalSet, globalsClear } = require('./globalMgmt.js');
+const { findCollectionConfig, isAWSLambda } = require('./utils.js');
+
 /**
  * Shared function to run a collection of scripts
  * @param {Object} options Configuration options
@@ -17,12 +19,9 @@ const { globalSet, globalsClear, isAWSLambda } = require('./globalMgmt.js');
 async function runCollection(options = {}) {
   const inLambda = isAWSLambda();
   const {
-   configPath = inLambda 
-     ? (process.env.LAMBDA_CONFIG_PATH || process.cwd() + '/_collection_config.yaml')
-     : path.join(process.cwd(), '_collection_config.yaml'),
    initialGlobals = {},
    clearGlobals = !inLambda,
-    } = options;
+  } = options;
 
   // Optional clear
   if (clearGlobals) {
@@ -36,12 +35,29 @@ async function runCollection(options = {}) {
 
   // Load collection config
   let config;
-  try {
-    const configFile = fs.readFileSync(configPath, 'utf8');
-    config = yaml.load(configFile);
-  } catch (err) {
-    console.error(`Could not load config from ${configPath}:`, err);
-    throw new Error(`Missing or invalid config file: ${err.message}`);
+  let configPath;
+
+  if (options.configPath) {
+    configPath = options.configPath;
+    try {
+      const configFile = fs.readFileSync(configPath, 'utf8');
+      config = yaml.load(configFile);
+    } catch (err) {
+      console.error(`Could not load config from ${configPath}:`, err);
+      throw new Error(`Missing or invalid config file: ${err.message}`);
+    }
+  } else {
+    // If no path is provided, find it
+    const startDir = inLambda
+      ? process.env.LAMBDA_TASK_ROOT || process.cwd()
+      : process.cwd();
+    const result = findCollectionConfig(startDir);
+    config = result.config;
+    configPath = result.configPath;
+  }
+
+  if (!configPath) {
+    throw new Error(`Could not find a _collection_config.yaml file.`);
   }
 
   // Get script lists

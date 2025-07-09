@@ -3,7 +3,7 @@ globals.json
 .secrets/do_not_git/*
 # Except .gitkeep (i.e., track that file so the folder stays tracked)
 !.secrets/do_not_git/.gitkeep
-
+**/globals.json
 
 # Logs
 logs

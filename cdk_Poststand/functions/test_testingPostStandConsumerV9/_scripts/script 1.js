@@ -23,3 +23,4 @@ setTimeout(() => {
  const globalsAfter = psc.globalListAll();
  console.log("ENABLED SCRIPTS AFTER QUEUE:", JSON.stringify(globalsAfter.enabledScripts));
  console.log("SCRIPT QUEUE AFTER QUEUE:", JSON.stringify(globalsAfter.scriptQueue));
+ console.always("Hollering Like ALWAYS")

@@ -1,9 +1,3 @@
-# [SETUP-201 Poststand: API Oriented framework in node](https://rbtlabs.atlassian.net/wiki/spaces/SETUP/pages/2136539137/SETUP-201+Poststand+API+Oriented+framework+in+node)
-
-This is one of two repos the other is here 
-
-[poststand core repo](https://github.com/dunhampa/poststand)
-
 
 # Welcome to your CDK TypeScript project
 

@@ -1,16 +1,24 @@
 {
-  "name": "poststand-core",
+  "name": "self",
   "version": "1.0.0",
+  "description": "Run local and remote REST API scripts with version-controlled secrets and configuration.",
   "main": "index.js",
+  "bin": {
+    "pstand": "./cli/main.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
-  "description": "",
+  "publishConfig": {
+    "access": "restricted"
+  },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.738.0",
+    "commander": "^12.1.0",
     "dotenv": "^16.4.7",
+    "inquirer": "^8.2.4",
     "js-yaml": "^4.1.0"
   }
 }

@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
+const { isAWSLambda } = require('./utils.js');
+const { getPrelude } = require('./logger.js');
 const {
-  isAWSLambda,
   globalGet,
   globalSet,
 } = require('./globalMgmt.js');
@@ -227,12 +228,35 @@ async function runScriptsInOrder(scripts, allowedScripts = []) {
         childEnv.TMP_GLOBALS_DIR = tmpNamespaceDir;
       }
 
-      const child = spawn('node', [scriptPath], { // Use the constructed scriptPath here
+      // We will now always inject the prelude to make console.always available.
+      // The prelude itself is conditional, so it's safe to run everywhere.
+      // We resolve the absolute path to utils.js to make the require call robust.
+      const utilsPath = require.resolve('./utils.js');
+      const prelude = getPrelude(utilsPath);
+      
+      // Determine the correct directory for the prelude file.
+      const preludeDir = tmpNamespaceDir || os.tmpdir();
+      const preludeFile = path.join(preludeDir, `prelude-${Date.now()}.js`);
+      
+      fs.writeFileSync(preludeFile, prelude);
+      
+      const nodeArgs = ['--require', preludeFile, scriptPath];
+
+      const child = spawn('node', nodeArgs, { // Use the constructed nodeArgs here
         stdio: 'inherit',
         env: childEnv,
       });
 
       child.on('close', (code) => {
+        // Clean up the prelude file
+        if (preludeFile) {
+          try {
+            fs.unlinkSync(preludeFile);
+          } catch (err) {
+            console.error(`[executor] Could not clean up prelude file ${preludeFile}:`, err);
+          }
+        }
+        
         // Update entry status and duration
         const duration = `${Date.now() - startTime}ms`;
         entry.status = code === 0 ? 'Done' : 'Error';

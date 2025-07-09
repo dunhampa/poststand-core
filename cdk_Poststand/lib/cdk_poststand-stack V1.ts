@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as fse from 'fs-extra';
 import * as os from 'os';
 import * as yaml from 'js-yaml';
-import * as iam from 'aws-cdk-lib/aws-iam';
 
 interface PostStandConfig {
   handlerFile?: string;
@@ -17,46 +16,24 @@ interface PostStandConfig {
   memorySize?: number;
   ephemeralStorageSize?: number;
   retryAttempts?: number;
-  secrets?: string[]; // <--- NEW
-  includeNodeModules?: boolean;
 }
 
 export class CdkPoststandStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // 1. Dynamically discover and define layers
-    const layersDir = path.join(__dirname, '../layers');
-    const layerFolders = fs.readdirSync(layersDir, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory() && dirent.name.startsWith('poststand-layer-'))
-      .map((dirent) => dirent.name);
-
-    const layerMap: Record<string, lambda.ILayerVersion> = {};
-
-    layerFolders.forEach((layerFolder) => {
-      const parts = layerFolder.split('-');
-      const version = parts[parts.length - 1]; // Get the last part which should be v1, v2, etc.
-      
-      if (!version || !version.startsWith('v')) {
-        console.warn(`Skipping invalid layer folder name: ${layerFolder}. Expected format: poststand-layer-vX`);
-        return;
-      }
-
-      const layerName = layerFolder;
-      
-      const cdkConstructId = `PoststandLayer${version.toUpperCase().replace('V', 'v')}`;
-
-      layerMap[layerName] = new lambda.LayerVersion(this, cdkConstructId, {
-        code: lambda.Code.fromAsset(path.join(layersDir, layerFolder)),
-        description: `Poststand Layer (${layerFolder})`,
-        compatibleRuntimes: [
-          lambda.Runtime.NODEJS_16_X,
-          lambda.Runtime.NODEJS_18_X,
-          lambda.Runtime.NODEJS_20_X,
-        ],
-        layerVersionName: layerName,
-      });
+    // 1. Define your layer(s)
+    const postStandLayerV1 = new lambda.LayerVersion(this, 'PoststandCoreLayerV1', {
+      code: lambda.Code.fromAsset(path.join(__dirname, '../layers/poststand-layer-v1')),
+      description: 'Lambda Layer containing poststand-core library (v1)',
+      compatibleRuntimes: [lambda.Runtime.NODEJS_16_X, lambda.Runtime.NODEJS_18_X, lambda.Runtime.NODEJS_20_X],
+      layerVersionName: 'poststand-core-layer-v1',
     });
+
+    const layerMap: Record<string, lambda.ILayerVersion> = {
+      'poststand-core-layer-v1': postStandLayerV1,
+      // If more layers exist, define them here
+    };
 
     // 2. Create an API Gateway
     const api = new apigw.RestApi(this, 'PostStandApi', {
@@ -83,6 +60,7 @@ export class CdkPoststandStack extends Stack {
       const config = yaml.load(configFile) as PostStandConfig;
 
       // Which handler do we copy from the top-level handlers/ dir?
+      // Default to "handler_v1.js" if not specified
       const handlerFile = config.handlerFile || 'handler_v1.js';
 
       // The place in your top-level repo where handlers live
@@ -94,13 +72,19 @@ export class CdkPoststandStack extends Stack {
       }
 
       // 5. Create a temp directory for bundling
+      // Example: /tmp/myStack-<folderName>-random
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `cdk-${folderName}-`));
 
       // Copy the entire function folder into tempDir
+      // (except we will rely on fromAsset exclude for node_modules, etc.)
       fse.copySync(folderPath, tempDir);
 
       // Also copy the selected handler from handlersDir => tempDir
+      // e.g. place it there as "handler.js" or keep original name "handler_v1.js"
+      // Usually you keep the same name, but let's keep it the same for clarity:
       fse.copySync(handlerSourcePath, path.join(tempDir, handlerFile));
+
+      // Now our merged code is in tempDir
 
       // Fallback defaults from config
       const memorySize = config.memorySize && !isNaN(config.memorySize) ? config.memorySize : 256;
@@ -115,29 +99,28 @@ export class CdkPoststandStack extends Stack {
         : 900; // 15 min
 
       // Construct the actual AWS Lambda Handler string:
+      // If we keep the file name "handler_v1.js", then it's "handler_v1.main"
       const handlerName = path.parse(handlerFile).name + '.main';
 
-      /* ------------------------------------------------------------
-      * Prepare asset exclusion list
-      * using includesNodeModules: true in config allows bundling of node
-      * ---------------------------------------------------------- */
-      const assetExcludes = ['globals.json'];
-
-      if (!config.includeNodeModules) {
-        assetExcludes.unshift('node_modules','package.json', 'package-lock.json', );
-      }
-  
       // 6. Create the Lambda
       const functionName = folderName; // or derive something else
       const lambdaFn = new lambda.Function(this, functionName, {
         functionName,
         runtime: lambda.Runtime.NODEJS_20_X,
         handler: handlerName,
-        code: lambda.Code.fromAsset(tempDir, { exclude: assetExcludes }),
+        code: lambda.Code.fromAsset(tempDir, {
+          // Exclude local stuff so we rely on the layer
+          exclude: [
+            'node_modules',
+            'package.json',
+            'package-lock.json',
+            'globals.json',
+          ],
+        }),
         layers: (config.layers || []).map((l) => {
           const layerObj = layerMap[l];
           if (!layerObj) {
-            throw new Error(`Layer "${l}" (from _collection_config.yaml) not found in defined layerMap. Check layer directory names and CDK stack output.`);
+            throw new Error(`Layer "${l}" not found in layerMap. Check config or add layer definition.`);
           }
           return layerObj;
         }),
@@ -150,24 +133,7 @@ export class CdkPoststandStack extends Stack {
         ephemeralStorageSize: Size.mebibytes(ephemeralStorage),
       });
 
-      // 7. Grant Lambda permission to read specified secrets
-      if (config.secrets && config.secrets.length > 0) {
-        for (const secretName of config.secrets) {
-          // Construct the resource ARN for the secret; 
-          // adjust pattern to your naming convention
-          const secretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:${secretName}*`;
-
-          lambdaFn.addToRolePolicy(
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              actions: ['secretsmanager:GetSecretValue'],
-              resources: [secretArn],
-            })
-          );
-        }
-      }
-
-      // 8. Create a Resource + POST method
+      // 7. Create a Resource + POST method
       const integration = new apigw.LambdaIntegration(lambdaFn);
       const resource = api.root.addResource(folderName);
       resource.addMethod('POST', integration);

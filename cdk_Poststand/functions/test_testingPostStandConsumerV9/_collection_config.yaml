@@ -1,0 +1,54 @@
+collection_order:
+  - script 1.js
+  - script3.js
+  - script5.js
+  - 3partCallerscript5.js
+  - atlassianTestV2.js
+  - atlasTestV3.js
+  - altassianTest.js
+allowed_scripts:
+  - script 1.js
+  - script2.js
+  - script3.js
+  - script5.js
+  - script10.js
+  - 3partCallerscript5.js
+  - atlassianTestV2.js
+  - atlasTestV3.js
+  - altassianTest.js
+includeNodeModules: false
+layers:
+  - poststand-layer-v10
+handlerFile: handler_v12.js
+timeoutDurationInSecs: 900
+memorySize: 2048
+ephemeralStorageSize: 2048
+retryAttempts: 0
+userLocalSecrets: false
+secrets:
+  - secretOne
+  - secretTwo
+returnable_globals:
+  policy: all
+  allowed:
+    - key1
+globalInputs:
+  policy: specified
+  allowed:
+    - name: userId
+      type: string
+      regex: ^[a-zA-Z0-9_-]{3,16}$
+    - name: sessionId
+      type: string
+    - name: featureFlags
+      type: object
+    - name: pageNumber
+      type: number
+    - name: isActive
+      type: boolean
+    - name: tags
+      type: array
+    - name: optionalUntypedParam
+    - name: contactEmail
+      type: string
+      regex: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$

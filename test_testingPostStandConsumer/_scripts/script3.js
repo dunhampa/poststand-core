@@ -16,7 +16,7 @@ globalSet("script3Save", ("Script 3 save" + " " + globalGet("script3Save")));
 
     // Example: Retrieve a nested key inside "secretTwo", e.g. secretTwo.dbCredentials.username
     const secretUser = await getSecret('secretTwo.dbCredentials.username');
-    console.log('secretTwo.dbCredentials.username:', secretUser);
+    //console.log('secretTwo.dbCredentials.username:', secretUser);
 
 
 

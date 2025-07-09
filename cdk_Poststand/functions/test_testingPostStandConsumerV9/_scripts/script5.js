@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { globalSet, globalGet, globalsClear, getSecret } = require('poststand-core');
+const { globalSet, globalGet, globalsClear, getSecret, globalListAll } = require('poststand-core');
 
 /*------------------------------*/
 /*---PRE_SCRIPT-----------------*/
@@ -35,6 +35,8 @@ async function mainFunction() {
 /*------------------------------*/
 async function cleanUp() {
   console.log('Running cleanup...');
+  const globals = globalListAll();
+  console.log("Globals", JSON.stringify(globals));
 }
 /*------------------------------*/
 /*---EXECUTION(NO UPDATES)-----*/

@@ -1,28 +1,28 @@
 // globalsMgmt.js
 const fs   = require('fs');
 const path = require('path');
-
-function isAWSLambda() {
-  return Boolean(
-    process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    process.env.AWS_EXECUTION_ENV   ||
-    process.env.LAMBDA_TASK_ROOT
-  );
-}
+const { isAWSLambda } = require('./utils.js');
 
 function getGlobalsFilePath() {
   const inLambda = isAWSLambda();
-  const dir = inLambda
-    ? process.env.LAMBDA_GLOBALS       // must be set by your handler
-    : process.cwd();
+  let dirPath;
 
-  if (inLambda && !dir) {
-    throw new Error(
-      '[globalsMgmt] process.env.LAMBDA_GLOBALS is not set; cannot write globals'
-    );
+  if (inLambda) {
+    dirPath = process.env.LAMBDA_GLOBALS;
+    if (!dirPath) {
+      throw new Error(
+        '[globalsMgmt] process.env.LAMBDA_GLOBALS is not set; cannot write globals'
+      );
+    }
+  } else {
+    const currentWorkingDirectory = process.cwd();
+    if (path.basename(currentWorkingDirectory) === '_scripts') {
+      dirPath = path.dirname(currentWorkingDirectory);
+    } else {
+      dirPath = currentWorkingDirectory;
+    }
   }
-
-  return path.join(dir, 'globals.json');
+  return path.join(dirPath, 'globals.json');
 }
 
 function loadGlobals() {

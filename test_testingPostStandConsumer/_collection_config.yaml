@@ -1,22 +1,18 @@
 collection_order:
   - script 1.js
-  # - script4.js
-  #- script2.js
   - script3.js
-  # - script4.js
   - script5.js
+  - script10.js
 allowed_scripts:
-  - script 1.js
   - script2.js
   - script3.js
   - script5.js
-  #- script10.js
 layers:
   - poststand-core-layer-v1
 timeoutDurationInSecs: 900
-memorySize:
-ephemeralStorageSize:
+memorySize: null
+ephemeralStorageSize: null
 retryAttempts: 0
-userLocalSecrets: false #this is ignored when running in AWS Lambda
+userLocalSecrets: false
 secrets:
   - secretTwo
